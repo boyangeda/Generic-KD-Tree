@@ -185,31 +185,34 @@ struct TreeType {
         span_(std::move(span_)) {}
 
   template <typename ContainerT>
-  ContainerT QueryOverlappedObjects(const NodeType &window) const {
+  size_t QueryOverlappedObjects(const NodeType &window, 
+				ContainerT& results) const {
 
     if (GetLowerCoordinate<NodeType, CurrAxis>(window) > std::get<1>(span_)) {
-      return ContainerT();
+      return 0;
     }
 
     if (GetUpperCoordinate<NodeType, CurrAxis>(window) < std::get<0>(span_)) {
-      return ContainerT();
+      return 0;
     }
 
-    ContainerT results;
+    size_t obj_count = 0;
 
     if (lower_tree_) {
-      results = lower_tree_->QueryOverlappedObjects(window);
+      obj_count = lower_tree_->QueryOverlappedObjects(window, results);
     }
 
     if (upper_tree_) {
-      ContainerT tmp = upper_tree_->QueryOverlappedObjects(window);
-      results.insert(results.end(), tmp.begin(), tmp.end());
+      obj_count += upper_tree_->QueryOverlappedObjects(window, results);
     }
 
-    ContainerT tmp = OverlappedWithCurrentDataSet<ContainerT>(window);
-    results.insert(results.end(), tmp.begin(), tmp.end());
-
-    return results;
+    ForCurrentDataSetOverlappedWith
+      (window, [&results, &obj_count](const NodeType&obj) { 
+	 results.push_back(obj);
+	 ++obj_count;
+       });
+    
+    return obj_count;
   }
 
   template <typename Predicate>
@@ -223,19 +226,10 @@ struct TreeType {
   }
 
 private:
-  template <typename ContainerT>
-  ContainerT OverlappedWithCurrentDataSet(const NodeType &window) const {
-
-    ContainerT results;
-    auto pred = [&results](const NodeType &obj) { results.push_back(obj); };
-
-    ForCurrentDataSetOverlappedWith(window, pred);
-
-    return results;
-  }
 
   template <typename Predicate>
-  void ForCurrentDataSetOverlappedWith(const NodeType &window, Predicate Pred) {
+  void ForCurrentDataSetOverlappedWith(const NodeType &window, 
+				       Predicate Pred) const {
 
     // quick check if there is overlap:
     std::tuple<CoordinateType, CoordinateType> data_span_ =
@@ -260,11 +254,11 @@ private:
   bool BuildIndex(RangeIteratorType begin, RangeIteratorType end,
                   size_t level) {
 
-    /* update coordinates span in all dimensions */
+    // update coordinates span in all dimensions
 
     span_ = CoordinateRange<NodeType, CurrAxis>(begin, end);
 
-    /* reached max level, stop partitoning. */
+    // reached max level, stop partitoning.
     if (level == type_traits::MaxLevel<NodeType>::value ||
         std::distance(begin, end) < type_traits::NodeSize<NodeType>::value) {
 
@@ -318,6 +312,9 @@ private:
   std::tuple<RangeIteratorType, RangeIteratorType> data_;
   std::tuple<CoordinateType, CoordinateType> span_;
 };
+
+
+
 
 // helper function for making a kd-tree:
 template <typename IteratorType>
