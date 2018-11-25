@@ -1,22 +1,19 @@
-// MIT License
-// Copyright (c) 2018 Bo Yang
-// Permission is hereby granted, free of charge, to any person obtaining a copy
-// of this software and associated documentation files (the "Software"), to
-// deal in the Software without restriction, including without limitation the
-// rights to use, copy, modify, merge, publish, distribute, sublicense, and/or
-// sell copies of the Software, and to permit persons to whom the Software is
-// furnished to do so, subject to the following conditions:
+// Copyright 2018 Bo Yang
 
-// The above copyright notice and this permission notice shall be included
-// in all copies or substantial portions of the Software.
+// This program is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
 
-// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-// IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-// FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-// AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-// LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
-// FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
-// DEALINGS IN THE SOFTWARE.
+// This program is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
+
+// You should have received a copy of the GNU General Public License
+// along with this program.  If not, see <http://www.gnu.org/licenses/>.
+
+
 
 #ifndef __GENERIC_KD_TREE_DEFINITION_H__
 #define __GENERIC_KD_TREE_DEFINITION_H__
@@ -33,26 +30,41 @@ namespace GenericKDTree {
 //
 namespace type_traits {
 
+
+  
 // use int64_t as default type for coordinate
 template <typename Tp> struct CoordinateType { typedef int64_t type; };
 
+
+  
 // default : 2D problem
 template <typename Tp> struct Dimension { constexpr static size_t value = 2; };
 
+
+  
 // default: max tree depth
 template <typename Tp> struct MaxLevel { constexpr static size_t value = 64; };
 
+
+  
 // default: max num of elements associated to a tree node
 template <typename Tp> struct NodeSize { constexpr static size_t value = 10; };
+  
 }
 
+
+  
 // must be specialized for T & Axis, otherwise compile error:
 template <typename T, size_t Axis>
 typename type_traits::CoordinateType<T>::type GetLowerCoordinate(const T &p);
 
+
+  
 template <typename T, size_t Axis>
 typename type_traits::CoordinateType<T>::type GetUpperCoordinate(const T &p);
 
+
+  
 namespace DimensionalOpImpl {
 
 // helper function to check if current axis
@@ -173,17 +185,29 @@ struct TreeType {
   typedef typename type_traits::CoordinateType<NodeType>::type CoordinateType;
   typedef IteratorType RangeIteratorType;
 
-  TreeType() = delete;
+  TreeType() = default;
 
   TreeType(RangeIteratorType begin, RangeIteratorType end, size_t level = 0) {
-    BuildIndex(begin, end, level);
+    if(begin != end) { BuildIndex(begin, end, level); }
   }
 
   TreeType(TreeType &&t)
       : lower_tree_(std::move(t.lower_tree_)),
-        upper_tree_(std::move(t.upper_tree_)), data_(std::move(data_)),
-        span_(std::move(span_)) {}
+        upper_tree_(std::move(t.upper_tree_)),
+        data_(std::move(t.data_)),
+        span_(std::move(t.span_)) {}
+  
+  TreeType& operator=(TreeType&& rhs) {
+    
+    lower_tree_ = std::move(rhs.lower_tree_);
+    upper_tree_ = std::move(rhs.upper_tree_);
+    data_ = std::move(rhs.data_);
+    span_ = std::move(rhs.span_);
+    return *this;
+  }
 
+  TreeType& operator=(const TreeType& rhs) = delete;
+  
   template <typename ContainerT>
   size_t QueryOverlappedObjects(const NodeType &window, 
 				ContainerT& results) const {
@@ -205,6 +229,8 @@ struct TreeType {
     if (upper_tree_) {
       obj_count += upper_tree_->QueryOverlappedObjects(window, results);
     }
+    
+    if( std::get<0>(data_) ==  std::get<1>(data_)) return 0; 
 
     ForCurrentDataSetOverlappedWith
       (window, [&results, &obj_count](const NodeType&obj) { 
@@ -255,12 +281,12 @@ private:
                   size_t level) {
 
     // update coordinates span in all dimensions
-
+    
     span_ = CoordinateRange<NodeType, CurrAxis>(begin, end);
 
     // reached max level, stop partitoning.
     if (level == type_traits::MaxLevel<NodeType>::value ||
-        std::distance(begin, end) < type_traits::NodeSize<NodeType>::value) {
+        std::distance(begin, end) < (int64_t)type_traits::NodeSize<NodeType>::value) {
 
       std::get<0>(data_) = begin;
       std::get<1>(data_) = end;
@@ -316,11 +342,9 @@ private:
 
 
 
-// helper function for making a kd-tree:
-template <typename IteratorType>
-TreeType<typename std::iterator_traits<IteratorType>::value_type, 0,
-         IteratorType>
-make_tree(IteratorType begin, IteratorType end) {
+
+  template <typename IteratorType>
+  auto make_tree(IteratorType begin, IteratorType end) {
 
   static_assert(
       std::is_same<
@@ -329,8 +353,11 @@ make_tree(IteratorType begin, IteratorType end) {
       "Must be random access iterator!");
 
   typedef typename std::iterator_traits<IteratorType>::value_type NodeType;
+  if(begin == end) return TreeType<NodeType, 0, IteratorType>();
   return TreeType<NodeType, 0, IteratorType>(begin, end);
 }
+
+  
 }
 
 #endif
