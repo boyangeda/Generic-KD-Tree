@@ -56,12 +56,23 @@ template <typename Tp> struct NodeSize { constexpr static size_t value = 10; };
   
 // must be specialized for T & Axis, otherwise compile error:
 template <typename T, size_t Axis>
-typename type_traits::CoordinateType<T>::type GetLowerCoordinate(const T &p);
+  typename type_traits::CoordinateType<T>::type 
+  GetLowerCoordinate(const T &p) {
+  static_assert("Need specilization for this function");
+  using return_type = typename type_traits::CoordinateType<T>::type;
+  return return_type();
+}
 
 
   
 template <typename T, size_t Axis>
-typename type_traits::CoordinateType<T>::type GetUpperCoordinate(const T &p);
+  typename type_traits::CoordinateType<T>::type 
+  GetUpperCoordinate(const T &p) 
+{
+  static_assert("Need specialization for this function");
+  using return_type = typename type_traits::CoordinateType<T>::type;
+  return return_type();
+}
 
 
   
@@ -105,9 +116,12 @@ namespace DefaultOverlapCheckImpl {
 // axis (dimension)
 template <typename T, size_t CurrAxis>
 bool DefaultDimensionalOverlapCheckHelper(const T &a, const T &b) {
-  return !(
-      GetLowerCoordinate<T, CurrAxis>(a) > GetUpperCoordinate<T, CurrAxis>(b) ||
-      GetLowerCoordinate<T, CurrAxis>(b) > GetUpperCoordinate<T, CurrAxis>(a));
+  return 
+    !(
+      GetLowerCoordinate<T, CurrAxis>(a) > 
+      GetUpperCoordinate<T, CurrAxis>(b) ||
+      GetLowerCoordinate<T, CurrAxis>(b) > 
+      GetUpperCoordinate<T, CurrAxis>(a));
 }
 
 //
@@ -145,8 +159,10 @@ struct DefaultOverlapChecker<T, CurrAxis, true> {
 };
 }
 
+
 // Check overlap with default impl.
-template <typename T> bool Overlapped(const T &a, const T &b) {
+template <typename T> 
+bool Overlapped(const T &a, const T &b) {
 
   // start from the first dimension (0)
   // template will be recursively expanded to apply checks on
